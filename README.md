@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform: ESP32-C5](https://img.shields.io/badge/Platform-ESP32--C5-blue)](https://www.espressif.com/en/products/socs/esp32-c5)
-[![Status: Production Ready](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)]()
+[![My Website](https://img.shields.io/badge/Website-stokemctoke.com-FAA307)](https://stokemctoke.com)
 
 **WiFuxx** is a compact, autonomous deauthentication tool designed for the XIAO ESP32-C5. It scans for nearby Wi-Fi networks, filters by signal strength, and launches targeted deauth attacks — all displayed on a tiny OLED screen.
 
@@ -11,14 +11,15 @@
 ## ⚠️ Legal Disclaimer
 
 > **IMPORTANT:** Laws regarding Wi-Fi deauthentication vary significantly by country. In many jurisdictions, using a deauther against networks you do not own or have explicit permission to test is **illegal** and may result in criminal charges, fines, or imprisonment.
->
+> 
 > **This tool is intended for:**
+> 
 > - ✅ Testing your own network security
 > - ✅ Educational purposes in controlled environments
 > - ✅ Authorised penetration testing
->
+> 
 > **DO NOT USE on public, neighbour, or any networks without written permission.**
->
+> 
 > **By using this software, you accept full responsibility for your actions.**
 
 ---
@@ -34,18 +35,17 @@
 - **🔫 Dual-Band Support** — Attacks both 2.4 GHz and 5 GHz networks.
 - **🚀 High Performance** — Optimised channel-hopping attack pattern.
 - **📝 Serial Logging** — Detailed logs via USB serial for debugging.
-- **🔋 Battery Ready** — Can run on battery via XIAO battery pads.
 
 ---
 
 ## 🛠️ Hardware Required
 
 | Component | Quantity | Notes |
-|-----------|----------|-------|
-| XIAO ESP32-C5 | 1 | Main controller |
-| 0.96" OLED Display (I2C) | 1 | 128×64, SSD1306 driver |
-| Breadboard & Jumper Wires | — | For prototyping |
-| USB-C Cable | 1 | Power and programming |
+| --- | --- | --- |
+| XIAO ESP32-C5 | 1   | Main controller |
+| 0.96" OLED Display (I2C) | 1   | 128×64, SSD1306 driver |
+| Breadboard & Jumper Wires | —   | For prototyping |
+| USB-C Cable | 1   | Power and programming |
 
 ---
 
@@ -71,13 +71,13 @@ XIAO ESP32-C5          OLED Display
 **Pin Mapping Reference:**
 
 | XIAO Pin | GPIO | OLED Connection |
-|----------|------|-----------------|
+| --- | --- | --- |
 | D4 (SDA) | GPIO23 | SDA (Data) |
 | D5 (SCL) | GPIO24 | SCL (Clock) |
-| 3V3 | — | VCC (Power) |
-| GND | — | Ground |
+| 3V3 | —   | VCC (Power) |
+| GND | —   | Ground |
 
-> **Note:** The OLED must be a 3.3V compatible model. Most 0.96" I2C OLEDs work perfectly at 3.3V.
+> **Note:** Both the XIAO ESP32-C5 and most 0.96" SSD1306 OLED modules include onboard LDO (Low Drop-Out) voltage regulators, so either 3.3V or 5V can be used to power the OLED. This project runs the OLED at 5V without issue. On standard modules, the I2C signal lines (SDA/SCL) are pulled up to the regulated 3.3V rail internally, keeping them safe for the ESP32-C5's 3.3V GPIO regardless of supply voltage. Verify this is the case for your specific module before powering at 5V.
 
 ---
 
@@ -85,20 +85,65 @@ XIAO ESP32-C5          OLED Display
 
 ### Prerequisites
 
-- [ESP-IDF v5.0 or later](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/)
 - XIAO ESP32-C5 board support
 - USB-C cable
 
-### Step 1: Clone the Repository
+> **Directory structure:** Keep ESP-IDF (the toolchain) and WiFuxx (the project) in separate locations. The instructions below use `~/Github-Repos/` — that's just where I keep my repos. Clone them wherever makes sense for your setup, and adjust the paths accordingly.
+> 
+> ```
+> ~/Github-Repos/
+>   esp-idf/       ← toolchain
+>   WiFuxx/        ← this project
+> ```
+
+### Step 1: Install ESP-IDF v5.5.1
+
+> ⚠️ **WiFuxx requires ESP-IDF v5.5.1 specifically.** Other versions are not guaranteed to work.
 
 ```bash
-git clone https://github.com/yourusername/wifuxx.git
-cd wifuxx
+mkdir -p ~/Github-Repos && cd ~/Github-Repos
+git clone --recursive --branch v5.5.1 https://github.com/espressif/esp-idf.git
+cd esp-idf
+./install.sh
+. ./export.sh
 ```
 
-### Step 2: Configure the Project
+> The `. ./export.sh` (note the leading dot and space) sets up the required environment variables for the current shell session. You will need to re-run this each time you open a new terminal.
+
+### Step 2: Clone WiFuxx
 
 ```bash
+cd ~/Github-Repos
+git clone https://github.com/stokemctoke/WiFuxx.git
+```
+
+### Step 3: Patch the WiFi Library
+
+A patched version of the ESP32-C5 WiFi library is required for deauth functionality. The patch file is included in the `patched_libnet` folder of this repository.
+
+Navigate to the ESP32-C5 WiFi library directory inside your ESP-IDF installation:
+
+```bash
+cd ~/Github-Repos/esp-idf/components/esp_wifi/lib/esp32c5
+```
+
+Remove the existing library file and replace it with the patched version:
+
+```bash
+rm libnet80211.a
+cp ~/Github-Repos/WiFuxx/patched_libnet/libnet80211.a .
+```
+
+Return to the ESP-IDF root:
+
+```bash
+cd ~/Github-Repos/esp-idf
+```
+
+### Step 4: Configure the Project
+
+```bash
+cd ~/Github-Repos/WiFuxx
 idf.py set-target esp32c5
 idf.py menuconfig
 ```
@@ -108,14 +153,14 @@ In `menuconfig`, verify:
 - **Component config → Wi-Fi → WiFi enable** is checked
 - **Component config → I2C → I2C enable** is checked
 
-### Step 3: Build and Flash
+### Step 5: Build and Flash
 
 ```bash
 idf.py build
 idf.py -p /dev/ttyUSB0 flash monitor
 ```
 
-> Replace `/dev/ttyUSB0` with your actual serial port.
+> Replace `/dev/ttyUSB0` with your actual serial port. Also may be shown like `/dev/ttyACM0`
 
 ---
 
@@ -132,7 +177,7 @@ IDLE (30s) → SCAN (5–10s) → ATTACK (300s) → IDLE → (repeat)
 **Display status during each phase:**
 
 | Phase | Display |
-|-------|---------|
+| --- | --- |
 | IDLE | Waiting for next scan cycle |
 | SCAN | Scanning for networks, counting strong APs |
 | ATTACK | Actively deauthenticating targets (shows packet counts) |
@@ -190,7 +235,7 @@ I (5683) WiFuxx: 💥 [5/300 sec] Total: 12450 pkt | PPS: 2490 | Targets: 7
 ## 🔧 Troubleshooting
 
 | Problem | Solution |
-|---------|----------|
+| --- | --- |
 | OLED display blank | Check wiring, especially SDA/SCL. Run an I2C scanner sketch to verify address. |
 | No deauth effect | Verify promiscuous mode is enabled — check serial for `"Failed to enable promiscuous mode"`. |
 | Device not scanning | Ensure Wi-Fi is initialised correctly — serial logs will show errors. |
@@ -215,7 +260,7 @@ This initialises all hardware but never scans or attacks — useful for verifyin
 ## 📈 Performance
 
 | Metric | Value |
-|--------|-------|
+| --- | --- |
 | Packet rate | ~2,500 packets/second (aggregate across all targets) |
 | Attack latency | < 1 ms between channel switches |
 | Display update rate | 1 Hz (negligible CPU impact) |
