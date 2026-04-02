@@ -4,6 +4,9 @@
 [![Platform: ESP32-C5](https://img.shields.io/badge/Platform-ESP32--C5-blue)](https://www.espressif.com/en/products/socs/esp32-c5)
 [![My Website](https://img.shields.io/badge/Website-stokemctoke.com-FAA307)](https://stokemctoke.com)
 
+![image](https://github.com/stokemctoke/WiFuxx/blob/master/WiFuxx_DualBand-Deauth-Firmware.jpg)
+
+
 **WiFuxx** is a compact, autonomous deauthentication tool designed for the XIAO ESP32-C5. It scans for nearby Wi-Fi networks, filters by signal strength, and launches targeted deauth attacks — all displayed on a tiny OLED screen.
 
 ---
