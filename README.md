@@ -1,4 +1,4 @@
-# 🔥 WiFuxx v1.1 — ESP32-C5 Autonomous Dual-Band Deauther
+# 🔥 WiFuxx      — ESP32-C5 Autonomous Dual-Band Deauther
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform: ESP32-C5](https://img.shields.io/badge/Platform-ESP32--C5-blue)](https://www.espressif.com/en/products/socs/esp32-c5)
@@ -186,7 +186,7 @@ IDLE (30s) → SCAN (5–10s) → ATTACK (300s) → IDLE → (repeat)
 
 ```
 ┌────────────────────────────────┐
-│ WiFuxx v1.1                    │  ← Title
+│ WiFuxx                         │  ← Title
 │ APs: 7                         │  ← Number of strong APs found
 │ Status: ATTACK                 │  ← Current state
 │ NETGEAR_123                    │  ← Target 1 (scrolls if >5)
