@@ -264,9 +264,9 @@ This initialises all hardware but never scans or attacks — useful for verifyin
 
 ## 🙏 Credits
 
-- Original concept by Stokes
-- ESP-IDF framework by [Espressif](https://www.espressif.com/)
-- SSD1306 driver adapted from public domain sources
+- Patched Libnet - [AnvilBrain](https://github.com/AnvilBrain)
+- ESP-IDF framework - [Espressif](https://www.espressif.com/)
+- SSD1306 Driver - Adapted from Public Domain Sources
 
 ---
 
