@@ -1,6 +1,8 @@
+bins-for-merge/
 build/
+managed_components/
 .pio/
 *.o
 *.bin
 *.elf
-sdkconfig.old
+*.old
