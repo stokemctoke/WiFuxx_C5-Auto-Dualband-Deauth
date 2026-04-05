@@ -31,7 +31,7 @@ static const char *TAG = "WiFuxx";
 #define BURST_SIZE_24GHZ           25         // 2.4GHz burst size
 #define BURST_SIZE_5GHZ            35         // 5GHz needs more frames
 #define CHANNEL_SWITCH_DELAY_MS    12         // Optimised delay
-#define TARGET_BURST_DELAY_MS      1          
+#define TARGET_BURST_DELAY_MS      1          //
 #define BAND_SWITCH_DELAY_MS       5          // Delay between bands
 #define CHANNEL_DWELL_MIN_MS       50         // Minimum time on channel
 #define CHANNEL_DWELL_MAX_MS       150        // Maximum before switching
@@ -187,7 +187,7 @@ static void oled_display_text_intro(void) {
     oled_draw_string(0, 5, line5);
     
     // Line 4:
-    oled_draw_string(0, 6, "SOMETIMES YOU...");
+    oled_draw_string(0, 6, "SOMETIMES YOU");
 
     // Line 5:
     oled_draw_string(0, 6, "JUST GOTTA GO AN");
