@@ -1,5 +1,5 @@
 // main.c - Stokes WiFuxx - ESP32-C5 Dual-Band Deauther (OPTIMISED)
-// Features: Optimised dualband deauth, OLED display with large intro
+// Features: Optimised dualband deauth, OLED display with text intro
 
 #include <stdio.h>
 #include <string.h>
@@ -92,6 +92,14 @@ static display_info_t current_display_info = {0};
 static const uint16_t deauth_reasons[] = {0x0001, 0x0003, 0x0006, 0x0007, 0x0008, 0x000C, 0x000D};
 static const uint8_t num_reasons = sizeof(deauth_reasons) / sizeof(deauth_reasons[0]);
 
+// ==================== Forward Declarations ====================
+static void oled_draw_char(uint8_t x, uint8_t page, char c);
+static void oled_draw_string(uint8_t x, uint8_t page, const char *str);
+static void oled_clear_page(uint8_t page);
+static void oled_clear_screen(void);
+static void oled_write_cmd(uint8_t cmd);
+static void oled_write_data(uint8_t data);
+
 // ==================== Minimal SSD1306 Driver ====================
 static void i2c_master_init(void) {
     i2c_config_t conf = {
@@ -160,91 +168,38 @@ static void oled_clear_screen(void) {
     }
 }
 
-// Large font drawing (16x16 for big text)
-static void oled_draw_large_char(uint8_t x, uint8_t page, char c) {
-    // Simplified 16x16 font for "STOKES" and "WIFUXX"
-    static const uint8_t large_font[][32] = {
-        // 'S' - 16x16
-        {0x00,0x00,0x00,0x00,0x00,0x00,0xFC,0x02,0x02,0x02,0x02,0x02,0x04,0xF8,0x00,0x00,
-         0x00,0x00,0x00,0x00,0x00,0x00,0x0F,0x10,0x10,0x10,0x10,0x10,0x08,0x07,0x00,0x00},
-        // 'T' - 16x16
-        {0x00,0x00,0x00,0x00,0x02,0x02,0x02,0xFF,0x02,0x02,0x02,0x00,0x00,0x00,0x00,0x00,
-         0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1F,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},
-        // 'O' - 16x16
-        {0x00,0x00,0x00,0xF8,0x04,0x02,0x02,0x02,0x02,0x02,0x04,0xF8,0x00,0x00,0x00,0x00,
-         0x00,0x00,0x00,0x07,0x08,0x10,0x10,0x10,0x10,0x10,0x08,0x07,0x00,0x00,0x00,0x00},
-        // 'K' - 16x16
-        {0x00,0x00,0x02,0x02,0x02,0x04,0x08,0xF0,0x08,0x04,0x02,0x02,0x00,0x00,0x00,0x00,
-         0x00,0x00,0x10,0x10,0x10,0x08,0x04,0x03,0x04,0x08,0x10,0x10,0x00,0x00,0x00,0x00},
-        // 'E' - 16x16
-        {0x00,0x00,0x02,0x02,0x02,0x02,0x02,0xFF,0x02,0x02,0x02,0x02,0x00,0x00,0x00,0x00,
-         0x00,0x00,0x10,0x10,0x10,0x10,0x10,0x1F,0x10,0x10,0x10,0x10,0x00,0x00,0x00,0x00},
-        // 'W' - 16x16
-        {0x00,0x00,0x00,0x03,0x04,0x08,0x30,0xC0,0x30,0x08,0x04,0x03,0x00,0x00,0x00,0x00,
-         0x00,0x00,0x00,0x00,0x01,0x02,0x04,0x1F,0x04,0x02,0x01,0x00,0x00,0x00,0x00,0x00},
-        // 'I' - 16x16
-        {0x00,0x00,0x00,0x00,0x02,0x02,0xFF,0x02,0x02,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-         0x00,0x00,0x00,0x00,0x00,0x00,0x1F,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},
-        // 'F' - 16x16
-        {0x00,0x00,0x02,0x02,0x02,0x02,0x02,0xFF,0x02,0x02,0x02,0x02,0x00,0x00,0x00,0x00,
-         0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1F,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},
-        // 'U' - 16x16
-        {0x00,0x00,0x00,0xFE,0x01,0x00,0x00,0x00,0x00,0x00,0x01,0xFE,0x00,0x00,0x00,0x00,
-         0x00,0x00,0x00,0x1F,0x20,0x40,0x40,0x40,0x40,0x40,0x20,0x1F,0x00,0x00,0x00,0x00},
-        // 'X' - 16x16
-        {0x00,0x00,0x02,0x04,0x08,0x10,0x20,0xC0,0x20,0x10,0x08,0x04,0x02,0x00,0x00,0x00,
-         0x00,0x00,0x10,0x08,0x04,0x02,0x01,0x00,0x01,0x02,0x04,0x08,0x10,0x00,0x00,0x00}
-    };
-    
-    int idx;
-    switch(c) {
-        case 'S': idx = 0; break;
-        case 'T': idx = 1; break;
-        case 'O': idx = 2; break;
-        case 'K': idx = 3; break;
-        case 'E': idx = 4; break;
-        case 'W': idx = 5; break;
-        case 'I': idx = 6; break;
-        case 'F': idx = 7; break;
-        case 'U': idx = 8; break;
-        case 'X': idx = 9; break;
-        default: return;
-    }
-    
-    oled_write_cmd(0xB0 + page);
-    oled_write_cmd(0x00 + (x & 0x0F));
-    oled_write_cmd(0x10 + ((x >> 4) & 0x0F));
-    for (int i = 0; i < 16; i++) {
-        oled_write_data(large_font[idx][i]);
-    }
-    oled_write_cmd(0xB0 + page + 1);
-    oled_write_cmd(0x00 + (x & 0x0F));
-    oled_write_cmd(0x10 + ((x >> 4) & 0x0F));
-    for (int i = 16; i < 32; i++) {
-        oled_write_data(large_font[idx][i]);
-    }
-}
-
-static void oled_display_large_intro(void) {
+// Simple text intro - displays for 5 seconds
+static void oled_display_text_intro(void) {
     oled_clear_screen();
     
-    // Display "STOKES" - large text
-    oled_draw_large_char(8, 1, 'S');
-    oled_draw_large_char(24, 1, 'T');
-    oled_draw_large_char(40, 1, 'O');
-    oled_draw_large_char(56, 1, 'K');
-    oled_draw_large_char(72, 1, 'E');
-    oled_draw_large_char(88, 1, 'S');
+    // Line 0: Title (fits: ">> Stokes WiFuxx" = 16 chars)
+    oled_draw_string(0, 0, "Stokes WiFuxx");
     
-    // Display "WIFUXX" below
-    oled_draw_large_char(12, 5, 'W');
-    oled_draw_large_char(28, 5, 'I');
-    oled_draw_large_char(44, 5, 'F');
-    oled_draw_large_char(60, 5, 'U');
-    oled_draw_large_char(76, 5, 'X');
-    oled_draw_large_char(92, 5, 'X');
+    // Line 1: Version (fits: "Dual-Band Deauth" = 16 chars)
+    oled_draw_string(0, 1, "Dual-Band Deauth");
     
-    vTaskDelay(pdMS_TO_TICKS(3000));
+    // Line 2: Features (fits: "2.4G+5G Auto" = 12 chars)
+    oled_draw_string(0, 2, "2.4G+5G Auto");
+    
+    // Line 3: 2.4GHz threshold (fits: "2G:-75dBm" = 10 chars)
+    char line3[17];
+    snprintf(line3, sizeof(line3), "2G:%ddBm", BAD_SIGNAL_THRESHOLD_24);
+    oled_draw_string(0, 3, line3);
+    
+    // Line 4: 5GHz threshold (fits: "5G:-70dBm" = 10 chars)
+    char line4[17];
+    snprintf(line4, sizeof(line4), "5G:%ddBm", BAD_SIGNAL_THRESHOLD_5);
+    oled_draw_string(0, 4, line4);
+    
+    // Line 5: Attack duration (fits: "Atk:150s" = 9 chars)
+    char line5[17];
+    snprintf(line5, sizeof(line5), "Atk:%ds", AUTO_ATTACK_DURATION_SEC);
+    oled_draw_string(0, 5, line5);
+    
+    // Line 6: Warning (fits: "OWN NET ONLY!" = 14 chars)
+    oled_draw_string(0, 6, "FUXX IT UP!");
+    
+    vTaskDelay(pdMS_TO_TICKS(5000));
     oled_clear_screen();
 }
 
@@ -570,13 +525,13 @@ static void multi_band_attack_task(void *pvParameters) {
             
             if (targets_24.count > 0) {
                 float pps_24 = (float)total_packets_24 / (float)(elapsed > 0 ? elapsed : 1);
-                log_to_all("   📻 2.4GHz: %6lu pkt (%4.0f pps) - %d targets", 
+                log_to_all("   ☠️ 2.4GHz: %6lu pkt (%4.0f pps) - %d targets", 
                          total_packets_24, pps_24, targets_24.count);
             }
             
             if (targets_5.count > 0) {
                 float pps_5 = (float)total_packets_5 / (float)(elapsed > 0 ? elapsed : 1);
-                log_to_all("   📻 5GHz:   %6lu pkt (%4.0f pps) - %d targets",
+                log_to_all("   ☠️ 5GHz:   %6lu pkt (%4.0f pps) - %d targets",
                          total_packets_5, pps_5, targets_5.count);
             }
             log_to_all("");
@@ -618,9 +573,9 @@ static void multi_band_attack_task(void *pvParameters) {
     log_to_all("   Total time: %lu seconds", total_time);
     log_to_all("   Average PPS: %.0f packets/sec", avg_pps);
     log_to_all("");
-    log_to_all("📻 2.4GHz Total: %lu packets (%.0f pps) across %d targets", 
+    log_to_all("☠️ 2.4GHz Total: %lu packets (%.0f pps) across %d targets", 
              total_packets_24, (float)total_packets_24/total_time, targets_24.count);
-    log_to_all("📻 5GHz Total:   %lu packets (%.0f pps) across %d targets",
+    log_to_all("☠️ 5GHz Total:   %lu packets (%.0f pps) across %d targets",
              total_packets_5, (float)total_packets_5/total_time, targets_5.count);
     
     // Effectiveness rating
@@ -700,8 +655,15 @@ static uint16_t scan_and_filter_targets(void) {
         if (ap_info[i].rssi > threshold) {
             attack_target_t *t = &auto_targets.targets[auto_targets.count];
             memcpy(t->bssid, ap_info[i].bssid, 6);
-            strncpy(t->ssid, (char*)ap_info[i].ssid, sizeof(t->ssid)-1);
-            t->ssid[sizeof(t->ssid)-1] = '\0';
+            
+            // Handle hidden networks - check if SSID is empty
+            if (strlen((char*)ap_info[i].ssid) == 0) {
+                strcpy(t->ssid, "Hidden");
+            } else {
+                strncpy(t->ssid, (char*)ap_info[i].ssid, sizeof(t->ssid)-1);
+                t->ssid[sizeof(t->ssid)-1] = '\0';
+            }
+            
             t->channel = ap_info[i].primary;
             t->active = true;
             t->packets_sent = 0;
@@ -792,8 +754,8 @@ static void display_task(void *pvParameters) {
     uint8_t scroll_index = 0;
     const int max_ssid_lines = 5;
 
-    // Show large intro first
-    oled_display_large_intro();
+    // Show text intro first (5 seconds)
+    oled_display_text_intro();
 
     while (1) {
         if (display_mutex) {
