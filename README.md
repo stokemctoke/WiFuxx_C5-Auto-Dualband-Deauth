@@ -7,7 +7,7 @@
 ![image](https://github.com/stokemctoke/WiFuxx/blob/main/WiFuxx_DualBand-Deauth-Firmware.jpg)
 
 
-**WiFuxx** is a compact, autonomous deauthentication tool designed for the XIAO ESP32-C5. It scans for nearby Wi-Fi networks, filters by signal strength, and launches targeted deauth attacks — all displayed on a tiny OLED screen.
+**WiFuxx** is a compact, autonomous deauthentication tool designed for the XIAO ESP32-C5. It scans for nearby Wi-Fi networks, filters by signal strength, and launches targeted deauth attacks indefinitely — all displayed on a tiny OLED screen.
 
 ---
 
@@ -29,14 +29,14 @@
 
 ## 📡 Features
 
-- **⚡ Fully Autonomous** — No web interface, no control needed. Power on and it works.
-- **📊 Smart Targeting** — Only attacks APs with signal > -70 dBm (strongest nearby networks).
+- **⚡ Fully Autonomous** — No web interface, no control needed. Power on and it attacks indefinitely.
+- **📊 Smart Targeting** — Separate signal thresholds per band: > -75 dBm (2.4GHz) and > -70 dBm (5GHz).
 - **🖥️ OLED Display** — Real-time status on a 128×64 screen:
-  - Number of detected APs
-  - Current status (IDLE / SCAN / ATTACK)
+  - Per-band AP counts (2.4GHz / 5GHz)
+  - Current status (IDLE / SCAN / ATTACK + elapsed time)
   - Scrolling list of target SSIDs
-- **🔫 Dual-Band Support** — Attacks both 2.4 GHz and 5 GHz networks.
-- **🚀 High Performance** — Optimised channel-hopping attack pattern.
+- **🔫 Dual-Band Support** — Attacks both 2.4 GHz and 5 GHz networks simultaneously.
+- **🚀 High Performance** — Optimised channel-hopping with batch I2C display updates (~100x fewer I2C transactions vs naive approach).
 - **📝 Serial Logging** — Detailed logs via USB serial for debugging.
 
 ---
@@ -95,8 +95,8 @@ XIAO ESP32-C5          OLED Display
 > 
 > ```
 > ~/Github-Repos/
->   esp-idf/       ← toolchain
->   WiFuxx/        ← this project
+>   esp-idf/                        ← toolchain
+>   WiFuxx_C5-Auto-Dualband-Deauth/ ← this project
 > ```
 
 ### Step 1: Install ESP-IDF v5.5.1
@@ -105,9 +105,9 @@ XIAO ESP32-C5          OLED Display
 
 ```bash
 mkdir -p ~/Github-Repos && cd ~/Github-Repos
-git clone --recursive --branch v5.5.1 https://github.com/espressif/esp-idf.git
+git clone --recursive --branch v5.5.1 --depth 1 https://github.com/espressif/esp-idf.git
 cd esp-idf
-./install.sh
+./install.sh esp32c5
 . ./export.sh
 ```
 
@@ -117,7 +117,7 @@ cd esp-idf
 
 ```bash
 cd ~/Github-Repos
-git clone https://github.com/stokemctoke/WiFuxx.git
+git clone https://github.com/stokemctoke/WiFuxx_C5-Auto-Dualband-Deauth.git
 ```
 
 ### Step 3: Patch the WiFi Library
@@ -134,18 +134,18 @@ Remove the existing library file and replace it with the patched version:
 
 ```bash
 rm libnet80211.a
-cp ~/Github-Repos/WiFuxx/patched_libnet/libnet80211.a .
+cp ~/Github-Repos/WiFuxx_C5-Auto-Dualband-Deauth/patched_libnet/libnet80211.a .
 ```
 
 ### Step 4: Build and Flash
 
 ```bash
-cd ~/Github-Repos/WiFuxx
+cd ~/Github-Repos/WiFuxx_C5-Auto-Dualband-Deauth
 idf.py build
 idf.py -p /dev/ttyUSB0 flash monitor
 ```
 
-> Replace `/dev/ttyUSB0` with your actual serial port. Also may be shown like `/dev/ttyACM0`
+> Replace `/dev/ttyUSB0` with your actual serial port. Also may be shown as `/dev/ttyACM0`
 
 ---
 
@@ -153,27 +153,29 @@ idf.py -p /dev/ttyUSB0 flash monitor
 
 ### Automatic Mode
 
-WiFuxx runs a continuous autonomous loop from the moment it powers on:
+WiFuxx runs autonomously from the moment it powers on:
 
 ```
-IDLE (30s) → SCAN (5–10s) → ATTACK (300s) → IDLE → (repeat)
+SCAN (5–10s) → ATTACK (infinite) 
 ```
+
+If no targets above the signal threshold are found on boot, the device waits 25 seconds and rescans until it finds targets. Once targets are found, it attacks indefinitely without stopping.
 
 **Display status during each phase:**
 
-| Phase  | Display                                                 |
-| ------ | ------------------------------------------------------- |
-| IDLE   | Waiting for next scan cycle                             |
-| SCAN   | Scanning for networks, counting strong APs              |
-| ATTACK | Actively deauthenticating targets (shows packet counts) |
+| Phase  | Display                                                      |
+| ------ | ------------------------------------------------------------ |
+| IDLE   | Waiting to rescan (only if no targets found)                 |
+| SCAN   | Scanning for networks, counting strong APs per band          |
+| ATTACK | Actively deauthenticating targets (shows elapsed time in seconds) |
 
 ### OLED Display Layout
 
 ```
 ┌────────────────────────────────┐
-│ WiFuxx                         │  ← Title
-│ APs: 7                         │  ← Number of strong APs found
-│ Status: ATTACK                 │  ← Current state
+│ Stokes WiFuxx                  │  ← Title
+│ 2.4G:4 5G:3                    │  ← Per-band AP counts
+│ ATK 42s                        │  ← Status + elapsed time
 │ NETGEAR_123                    │  ← Target 1 (scrolls if >5)
 │ BT-Hub_456                     │  ← Target 2
 │ Starlink_789                   │  ← Target 3
@@ -187,10 +189,12 @@ IDLE (30s) → SCAN (5–10s) → ATTACK (300s) → IDLE → (repeat)
 Edit these values at the top of `main.c` to customise behaviour:
 
 ```c
-#define BAD_SIGNAL_THRESHOLD       -70    // Attack APs stronger than this (dBm)
-#define MAX_TARGETS                10     // Maximum APs to target
-#define AUTO_SCAN_INTERVAL_SEC     30     // Seconds between scans
-#define AUTO_ATTACK_DURATION_SEC   300    // Attack duration in seconds
+#define BAD_SIGNAL_THRESHOLD_24    -75   // Attack 2.4GHz APs stronger than this (dBm)
+#define BAD_SIGNAL_THRESHOLD_5     -70   // Attack 5GHz APs stronger than this (dBm)
+#define MAX_TARGETS                10    // Maximum APs to target
+#define AUTO_SCAN_INTERVAL_SEC     25    // Seconds between retries when no targets found
+#define BURST_SIZE_24GHZ           25    // Deauth frames per burst on 2.4GHz
+#define BURST_SIZE_5GHZ            35    // Deauth frames per burst on 5GHz
 ```
 
 ---
@@ -206,13 +210,15 @@ idf.py monitor
 Example output:
 
 ```
-I (1234) WiFuxx: 🔍 Scanning for networks...
-I (5678) WiFuxx: ✅ Found 15 total networks
-I (5679) WiFuxx: 🎯 Targeting APs with signal > -70 dBm:
-I (5680) WiFuxx:   [0] NETGEAR_123 (CH: 6, 2.4GHz, RSSI: -45)
-I (5681) WiFuxx:   [1] BT-Hub_456  (CH: 1, 2.4GHz, RSSI: -52)
-I (5682) WiFuxx: 💥 MULTI-TARGET ATTACK STARTED!
-I (5683) WiFuxx: 💥 [5/300 sec] Total: 12450 pkt | PPS: 2490 | Targets: 7
+I (1234) WiFuxx: Scanning for networks...
+I (5678) WiFuxx: Found 15 total networks
+I (5679) WiFuxx:   [0] NETGEAR_123 (CH 6, 2.4GHz, RSSI -45, MAC aa:bb:cc:dd:ee:ff)
+I (5680) WiFuxx:   [1] BT-Hub_456  (CH 1, 2.4GHz, RSSI -52, MAC 11:22:33:44:55:66)
+I (5681) WiFuxx: Starting infinite attack on 7 targets
+I (5682) WiFuxx: DUAL-BAND ATTACK STARTED!
+I (7683) WiFuxx: [2 s] Total:   4900 pkt | PPS: 2450 | Cycles: 12
+I (7684) WiFuxx:   2.4GHz:   2800 pkt (1400 pps) - 4 targets
+I (7685) WiFuxx:   5GHz:     2100 pkt (1050 pps) - 3 targets
 ```
 
 ---
@@ -224,21 +230,7 @@ I (5683) WiFuxx: 💥 [5/300 sec] Total: 12450 pkt | PPS: 2490 | Targets: 7
 | OLED display blank  | Check wiring, especially SDA/SCL. Run an I2C scanner sketch to verify address.               |
 | No deauth effect    | Verify promiscuous mode is enabled — check serial for `"Failed to enable promiscuous mode"`. |
 | Device not scanning | Ensure Wi-Fi is initialised correctly — serial logs will show errors.                        |
-| Compilation errors  | Run `idf.py clean` and rebuild. Ensure ESP-IDF is v5.0+.                                     |
-
----
-
-## 🧪 Testing
-
-### Safe Mode (No RF Activity)
-
-To test the OLED and boot sequence without any RF activity:
-
-```c
-#define AUTO_MODE_ENABLED 0   // In main.c
-```
-
-This initialises all hardware but never scans or attacks — useful for verifying your wiring.
+| Compilation errors  | Run `idf.py fullclean` and rebuild. Ensure ESP-IDF is v5.5.1.                                |
 
 ---
 
@@ -247,8 +239,8 @@ This initialises all hardware but never scans or attacks — useful for verifyin
 | Metric              | Value                                                |
 | ------------------- | ---------------------------------------------------- |
 | Packet rate         | ~2,500 packets/second (aggregate across all targets) |
-| Attack latency      | < 1 ms between channel switches                      |
-| Display update rate | 1 Hz (negligible CPU impact)                         |
+| Channel switch delay| 12 ms                                                |
+| Display update rate | 1 Hz (batch I2C flush, negligible CPU impact)        |
 | Memory usage        | ~50 KB heap, ~500 KB flash                           |
 
 ---
@@ -280,8 +272,8 @@ MIT Licence — see the [LICENSE](LICENSE) file for details.
 
 1. Wire OLED: `VCC→3V3`, `GND→GND`, `SDA→D4`, `SCL→D5`
 2. Flash with `idf.py flash monitor`
-3. Watch the OLED show AP count and status
-4. Device attacks automatically every 30 seconds
+3. Watch the OLED show the intro screen, then AP counts and attack status
+4. Device scans immediately on boot and attacks all targets above threshold indefinitely
 
 > **Remember:** Only use on your own networks! 🛡️
 
