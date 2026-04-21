@@ -173,7 +173,7 @@ If no targets above the signal threshold are found on boot, the device waits 25 
 
 ```
 ┌────────────────────────────────┐
-│ Stokes WiFuxx                  │  ← Title
+│ >> PRO DEAUTHER                │  ← Title
 │ 2.4G:4 5G:3                    │  ← Per-band AP counts
 │ ATK 42s                        │  ← Status + elapsed time
 │ NETGEAR_123                    │  ← Target 1 (scrolls if >5)
