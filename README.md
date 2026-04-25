@@ -1,8 +1,8 @@
 # WiFuxx: C5 Autonomous Dual-Band Deauth
 
 [![Ko-Fi](https://img.shields.io/badge/Ko--Fi-Support%20Me-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/stoke)
-[![Platform: ESP32-C5](https://img.shields.io/badge/Platform-ESP32--C5-blue)](https://www.espressif.com/en/products/socs/esp32-c5)
 [![My Website](https://img.shields.io/badge/Website-stokemctoke.com-FAA307)](https://stokemctoke.com)
+[![Platform: ESP32-C5](https://img.shields.io/badge/Platform-ESP32--C5-blue)](https://www.espressif.com/en/products/socs/esp32-c5)
 
 ![image](https://github.com/stokemctoke/WiFuxx/blob/main/WiFuxx_DualBand-Deauth-Firmware.jpg)
 
