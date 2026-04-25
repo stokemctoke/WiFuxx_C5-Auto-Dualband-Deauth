@@ -223,7 +223,7 @@ I (7685) WiFuxx:   5GHz:     2100 pkt (1050 pps) - 3 targets
 
 ---
 
-## 🔧 Troubleshooting
+## 🔧 Troubleshootingyour
 
 | Problem             | Solution                                                                                     |
 | ------------------- | -------------------------------------------------------------------------------------------- |
@@ -279,4 +279,4 @@ MIT Licence — see the [LICENSE](LICENSE) file for details.
 
 ---
 
-*WiFuxx — Because sometimes you need to fuxx about (with your own network 😉)*
+>> ***WiFuxx:** Because sometimes you just need to fuxx about (with your own network* 😉 *)* <<
