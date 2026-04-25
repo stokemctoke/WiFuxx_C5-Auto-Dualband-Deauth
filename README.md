@@ -84,6 +84,31 @@ XIAO ESP32-C5          OLED Display
 
 ---
 
+## ⚡ Flashing the Pre-built Binary
+
+If you don't want to build from source, you can flash the pre-built merged binary directly from your browser — no toolchain required.
+
+### Recommended Tool: ESPConnect
+
+**[https://thelastoutpostworkshop.github.io/ESPConnect/](https://thelastoutpostworkshop.github.io/ESPConnect/)**
+
+This is the recommended flashing tool for the ESP32-C5. Many popular online flash tools do not yet support the C5, but ESPConnect does. It also displays useful chip information (flash size, MAC address, chip revision, etc.) directly in the browser.
+
+### Steps
+
+1. Download `WiFuxx_v1.0c_merged.bin` from the [Releases](https://github.com/stokemctoke/WiFuxx_C5-Auto-Dualband-Deauth/releases) page
+2. Open **ESPConnect** in a Chromium-based browser (Chrome, Edge — Firefox is not supported for WebSerial)
+3. Connect your XIAO ESP32-C5 via USB-C
+4. Click **Connect** and select your device from the port list
+5. Choose **Custom Flash** and select `WiFuxx_v1.0c_merged.bin`
+6. Set the flash address to `0x0`
+7. Click **Flash** and wait for it to complete
+8. Press the reset button on the XIAO — WiFuxx will boot immediately
+
+> The merged binary includes the bootloader, partition table, and application in a single file, so flashing at `0x0` is all that's needed.
+
+---
+
 ## 📥 Installation
 
 ### Prerequisites
