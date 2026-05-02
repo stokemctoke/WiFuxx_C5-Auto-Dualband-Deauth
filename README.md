@@ -1,4 +1,4 @@
-# WiFuxx: C5 Autonomous Dual-Band Deauth
+# WiFuxx: ESP32-C5 Autonomous Dual-Band Deauth
 
 [![Ko-Fi](https://img.shields.io/badge/Ko--Fi-Support%20Me-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/stoke)
 [![My Website](https://img.shields.io/badge/Website-stokemctoke.com-FAA307)](https://stokemctoke.com)
@@ -96,7 +96,7 @@ This is the recommended flashing tool for the ESP32-C5. Many popular online flas
 
 ### Steps
 
-1. Download `WiFuxx_v1.0c_merged.bin` from the [Releases](https://github.com/stokemctoke/WiFuxx_C5-Auto-Dualband-Deauth/releases) page
+1. Download `WiFuxx_v1.1b_merged.bin` from the [Releases](https://github.com/stokemctoke/WiFuxx_ESP32-C5-Auto-Dualband-Deauth/releases) page
 2. Open **ESPConnect** in a Chromium-based browser (Chrome, Edge — Firefox is not supported for WebSerial)
 3. Connect your XIAO ESP32-C5 via USB-C
 4. Click **Connect** and select your device from the port list
