@@ -248,7 +248,7 @@ I (7685) WiFuxx:   5GHz:     2100 pkt (1050 pps) - 3 targets
 
 ---
 
-## 🔧 Troubleshootingyour
+## 🔧 Troubleshooting
 
 | Problem             | Solution                                                                                     |
 | ------------------- | -------------------------------------------------------------------------------------------- |
