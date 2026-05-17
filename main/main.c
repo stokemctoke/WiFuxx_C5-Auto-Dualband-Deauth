@@ -17,6 +17,7 @@
 #include "esp_netif.h"
 #include "esp_system.h"
 #include "driver/i2c.h"
+#include "led_strip.h"
 
 static const char *TAG = "WiFuxx";
 
@@ -38,6 +39,11 @@ static const char *TAG = "WiFuxx";
 #define I2C_MASTER_SCL_IO  GPIO_NUM_24
 #define I2C_MASTER_FREQ_HZ 400000
 #define OLED_ADDR          0x3C
+
+// Status LED (WS2812B)
+#define STATUS_LED_GPIO        GPIO_NUM_27
+#define STATUS_LED_BRIGHTNESS  64    // 25% of 255 (0.25 * 255 ~= 64)
+#define STATUS_LED_TICK_MS     40    // animation update period
 // =======================================================
 
 typedef struct {
@@ -77,8 +83,115 @@ static const uint16_t deauth_reasons[] = {
 };
 static const uint8_t num_reasons = sizeof(deauth_reasons) / sizeof(deauth_reasons[0]);
 
+// ==================== Status LED ====================
+// Color signals on a single WS2812B at STATUS_LED_GPIO, scaled to 25% brightness.
+//   BOOT         : solid blue        — chip powering up
+//   WIFI_INIT    : solid magenta     — bringing up Wi-Fi / OLED
+//   SCANNING     : cyan fast pulse   — scanning for networks
+//   NO_TARGETS   : yellow slow blink — scan complete, nothing strong enough, retrying
+//   TARGETS_FOUND: solid green       — targets locked, attack about to start
+//   ATTACKING    : red breathing     — deauth burst loop running
+typedef enum {
+    LED_STATE_BOOT = 0,
+    LED_STATE_WIFI_INIT,
+    LED_STATE_SCANNING,
+    LED_STATE_NO_TARGETS,
+    LED_STATE_TARGETS_FOUND,
+    LED_STATE_ATTACKING,
+} led_state_t;
+
+static volatile led_state_t led_state = LED_STATE_BOOT;
+static led_strip_handle_t   status_led = NULL;
+
 #include "boot_bitmap.h"
 #include "monitor_bitmap.h"
+
+// ==================== Status LED Driver ====================
+static void status_led_init(void) {
+    led_strip_config_t strip_cfg = {
+        .strip_gpio_num        = STATUS_LED_GPIO,
+        .max_leds              = 1,
+        .led_model             = LED_MODEL_WS2812,
+        .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
+        .flags                 = { .invert_out = false },
+    };
+    led_strip_rmt_config_t rmt_cfg = {
+        .clk_src           = RMT_CLK_SRC_DEFAULT,
+        .resolution_hz     = 10 * 1000 * 1000,  // 10MHz
+        .mem_block_symbols = 0,
+        .flags             = { .with_dma = 0 },
+    };
+    if (led_strip_new_rmt_device(&strip_cfg, &rmt_cfg, &status_led) != ESP_OK) {
+        ESP_LOGW(TAG, "Status LED init failed");
+        status_led = NULL;
+        return;
+    }
+    led_strip_clear(status_led);
+    led_strip_refresh(status_led);
+}
+
+// Scale a 0..255 channel down to STATUS_LED_BRIGHTNESS (25%).
+static inline uint8_t led_scale(uint8_t v) {
+    return (uint16_t)v * STATUS_LED_BRIGHTNESS / 255;
+}
+
+// 0..255 triangle wave for breathing/pulsing — `period_ms` is full cycle length.
+static uint8_t triangle_wave(uint32_t t_ms, uint32_t period_ms) {
+    uint32_t phase = t_ms % period_ms;
+    uint32_t half  = period_ms / 2;
+    return (phase < half)
+         ? (uint8_t)(phase * 255 / half)
+         : (uint8_t)((period_ms - phase) * 255 / half);
+}
+
+static void status_led_task(void *pvParameters) {
+    uint32_t t = 0;
+    while (1) {
+        uint8_t r = 0, g = 0, b = 0;
+
+        switch (led_state) {
+            case LED_STATE_BOOT:
+                // Solid blue
+                b = 255;
+                break;
+            case LED_STATE_WIFI_INIT:
+                // Solid magenta
+                r = 255; b = 200;
+                break;
+            case LED_STATE_SCANNING: {
+                // Cyan fast pulse (~600ms period)
+                uint8_t lvl = triangle_wave(t, 600);
+                g = lvl; b = lvl;
+                break;
+            }
+            case LED_STATE_NO_TARGETS: {
+                // Yellow slow blink (~1.6s on/off)
+                bool on = ((t / 800) & 1) == 0;
+                if (on) { r = 255; g = 180; }
+                break;
+            }
+            case LED_STATE_TARGETS_FOUND:
+                // Solid green
+                g = 255;
+                break;
+            case LED_STATE_ATTACKING: {
+                // Red breathing (~900ms cycle) with a floor so it never fully drops to black
+                uint8_t lvl = triangle_wave(t, 900);
+                if (lvl < 60) lvl = 60;
+                r = lvl;
+                break;
+            }
+        }
+
+        if (status_led) {
+            led_strip_set_pixel(status_led, 0, led_scale(r), led_scale(g), led_scale(b));
+            led_strip_refresh(status_led);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(STATUS_LED_TICK_MS));
+        t += STATUS_LED_TICK_MS;
+    }
+}
 
 // ==================== SSD1306 Framebuffer Driver ====================
 // All drawing is done in-memory; oled_flush() sends only dirty pages.
@@ -540,6 +653,7 @@ static uint16_t scan_and_filter_targets(void) {
         .show_hidden = true,
     };
 
+    led_state = LED_STATE_SCANNING;
     ESP_LOGI(TAG, "Scanning for networks...");
     if (esp_wifi_scan_start(&scan_config, true) != ESP_OK) {
         ESP_LOGE(TAG, "Scan failed");
@@ -640,10 +754,14 @@ static void autonomous_mode_task(void *pvParameters) {
         uint16_t target_count = scan_and_filter_targets();
 
         if (target_count > 0) {
+            led_state = LED_STATE_TARGETS_FOUND;
             ESP_LOGI(TAG, "Starting infinite attack on %d targets", target_count);
+            vTaskDelay(pdMS_TO_TICKS(500));  // brief green flash so user sees the lock-on
             start_multi_band_attack();
+            led_state = LED_STATE_ATTACKING;
             while (attack_running) vTaskDelay(pdMS_TO_TICKS(1000));
         } else {
+            led_state = LED_STATE_NO_TARGETS;
             ESP_LOGI(TAG, "No strong signals, sleeping %ds...", AUTO_SCAN_INTERVAL_SEC);
         }
 
@@ -703,6 +821,7 @@ static void display_task(void *pvParameters) {
 
 // ==================== Wi-Fi Initialisation ====================
 static void wifi_init_sta(void) {
+    led_state = LED_STATE_WIFI_INIT;
     esp_netif_init();
     esp_event_loop_create_default();
     esp_netif_create_default_wifi_sta();
@@ -741,6 +860,10 @@ static void log_boot_splash(void) {
 // ==================== Main ====================
 void app_main(void) {
     log_boot_splash();
+
+    status_led_init();
+    led_state = LED_STATE_BOOT;
+    xTaskCreate(status_led_task, "status_led", 2048, NULL, 1, NULL);
 
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
